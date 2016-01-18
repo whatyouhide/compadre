@@ -1,106 +1,94 @@
 defmodule Compadre do
-  defmodule Cont do
-    @moduledoc """
-    Opaque representation of a continuation.
+  alias Compadre.Core
+  alias Compadre.Helpers
+  alias Compadre.Core.{Success, Failure, Partial}
+  alias Compadre.Parser
 
-    You can use this struct in pattern matches:
+  @doc """
+  TODO
+  """
+  # TODO fix this spec
+  @spec parse(Parser.t, binary) :: {:ok, any, binary}
+                                 | {:error, any, binary}
+                                 | {:partial, (... -> any)}
+  def parse(parser, input) do
+    case Parser.apply(parser, input, 0, terminal_failf(), terminal_succf()) do
+      %Partial{cont: cont} -> {:partial, cont}
+      other                -> other
+    end
+  end
 
-        case parse(data) do
-          %Compadre.Cont{} -> :continuation
-          {:ok, _, _}      -> :result
-        end
+  @doc """
+  Feeds more input to the result of a parser.
 
-    but you're not supposed to use the field of the struct (as they may change
-    in the future).
-    """
+  If the result is a successful result, that result will be returned with
+  `input` appended to its `rest`. The same happens for failure results. If
+  result is a partial result (a continuation), then that continuation will be
+  called with `input` as its input.
+  """
+  @spec feed(Core.result(t1, t2), binary) :: Core.result(t1, t2) when t1: any, t2: any
+  def feed(result, input)
 
-    defstruct fun: nil
+  def feed({:ok, result, rest}, input),
+    do: {:ok, result, rest <> input}
+  def feed({:error, reason, rest}, input),
+    do: {:error, reason, rest <> input}
+  def feed({:partial, cont}, input),
+    do: (case cont.(input) do
+           %Partial{cont: cont} -> {:partial, cont}
+           other                -> other
+         end)
 
-    defimpl Inspect do
-      import Inspect.Algebra
+  defp terminal_succf() do
+    fn(%Success{} = succ, input, pos) ->
+      {:ok, succ.result, Helpers.from_position_to_end(input, pos)}
+    end
+  end
 
-      def inspect(%Cont{fun: fun}, opts) do
-        concat ["#Compadre.Cont<", to_doc(fun, opts), ">"]
+  defp terminal_failf() do
+    fn(%Failure{} = fail, input, pos) ->
+      {:error, fail.reason, Helpers.from_position_to_end(input, pos)}
+    end
+  end
+
+  defmacro compose(do: block) do
+    case block do
+      {:__block__, _meta, actions} ->
+        expand_actions(actions)
+      action ->
+        expand_actions([action])
+    end
+    |> (fn q -> IO.puts(Macro.to_string(q)); q end).()
+  end
+
+  defp expand_actions([{op, _, _} = code]) when op in [:=, :<-] do
+    raise ArgumentError, "the last action in a compose block cannot be an" <>
+                         " assignment (<- or =) as it must be a parser," <>
+                         " got: #{Macro.to_string(code)}"
+  end
+
+  defp expand_actions([action]) do
+    action
+  end
+
+  defp expand_actions([{:<-, _meta, [var, parser]}|rest]) do
+    quote do
+      Compadre.bind unquote(parser), fn(unquote(var)) ->
+        unquote(expand_actions(rest))
       end
     end
   end
 
-  @type parser_result ::
-    {:ok, any, binary} | %Cont{fun: (binary -> parser_result)}
-
-  @type continuation_fun ::
-    (binary -> parser_result)
-
-  @type continuation :: %Cont{fun: continuation_fun}
-
-  @compile {:inline, mkcont: 1}
-
-  @doc """
-  Creates a continuation from the given `fun`.
-
-  As the type signature says, `fun` should be a continuation function, i.e., a
-  function that takes a binary and returns a `Compadre.parser_result`.
-  """
-  @spec mkcont(continuation_fun) :: Cont.t
-  def mkcont(fun) when is_function(fun, 1) do
-    %Cont{fun: fun}
-  end
-
-  @doc """
-  Tries to resolve a continuation and runs `ok_fun` if it manages to.
-
-  This function takes the result of a parsing attempt (so either `{:ok, value,
-  rest}` or a continuation).
-
-    * If `parser_result` is `{:ok, value, rest}`, then `ok_fun.(value, rest)` is
-      called.
-    * If `parser_result` is a continuation, then a wrapper continuation (with
-      the same `ok_fun`) is returned.
-
-  ## Examples
-
-      iex> my_parser = fn
-      ...>   ":"          -> Compadre.mkcont(fn(")" <> rest) -> {:ok, :smile, rest} end)
-      ...>   ":)" <> rest -> {:ok, :smile, rest}
-      ...> end
-      iex> ok_fun = fn(:smile, _rest) -> :smile_from_ok_fun end
-      iex> %Compadre.Cont{} = cont = Compadre.resolve_cont_then(my_parser.(":"), ok_fun)
-      iex> Compadre.apply_cont(cont, ")")
-      :smile_from_ok_fun
-
-  """
-  @spec resolve_cont_then(parser_result, (any, binary -> result)) :: result when result: any
-  def resolve_cont_then(parser_result, ok_fun)
-
-  def resolve_cont_then({:ok, val, rest}, ok_fun) when is_function(ok_fun, 2) do
-    ok_fun.(val, rest)
-  end
-
-  def resolve_cont_then(%Cont{fun: cont}, ok_fun) when is_function(ok_fun, 2) do
-    mkcont fn new_data ->
-      resolve_cont_then(cont.(new_data), ok_fun)
+  defp expand_actions([{:=, _, _} = code|rest]) do
+    quote do
+      unquote(code)
+      unquote(expand_actions(rest))
     end
   end
 
-  def resolve_cont_then(what, ok_fun) when is_function(ok_fun, 2) do
-    msg = "expected {:ok, value, rest} or a continuation, got: #{inspect what}"
-    raise ArgumentError, msg
+  defp expand_actions([action|rest]) do
+    quote do
+      Compadre.seq(unquote(action), unquote(expand_actions(rest)))
+    end
   end
-
-  @doc """
-  Applies the given continuation to the given `data`.
-
-  ## Examples
-
-      iex> %Compadre.Cont{} = cont = Compadre.mkcont(fn data -> byte_size(data) end)
-      iex> Compadre.apply_cont(cont, "foo")
-      3
-
-  """
-  def apply_cont(continuation, data)
-
-  def apply_cont(%Cont{fun: cont}, data) when is_bitstring(data),
-    do: cont.(data)
-  def apply_cont(_cont, term),
-    do: raise(ArgumentError, "continuations can only be applied to bitstrings, got: #{inspect term}")
 end

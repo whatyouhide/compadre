@@ -44,6 +44,15 @@ defmodule Compadre.Combinators do
   @doc """
   TODO
   """
+  # TODO spec
+  # TODO test this
+  def rseq(parser1, parser2) do
+    bind(parser1, fn res -> seq(parser2, Parsers.fixed(res)) end)
+  end
+
+  @doc """
+  TODO
+  """
   # TODO better spec
   @spec plus(Parser.t, Parser.t) :: Parser.t
   def plus(parser1, parser2) do

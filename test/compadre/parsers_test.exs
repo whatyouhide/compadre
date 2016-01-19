@@ -20,6 +20,11 @@ defmodule Compadre.ParsersTest do
     # ...as well as in the middle of it.
     assert {:partial, _} = res = parse_test(demand_input(), "a", pos: 1)
     assert Compadre.feed(res, "foo") == {:ok, nil, "foo"}
+
+    assert {:error, _, _} =
+      demand_input()
+      |> parse_test("skipped", pos: 7)
+      |> Compadre.eoi()
   end
 
   test "advance/1" do
@@ -63,6 +68,11 @@ defmodule Compadre.ParsersTest do
       peek_byte()
       |> parse_test(<<0>>, pos: 1)
       |> Compadre.feed(<<1, 2, 3>>)
+
+    assert {:error, "unexpected end of input", ""} =
+      peek_byte()
+      |> parse_test(<<>>)
+      |> Compadre.eoi()
   end
 
   test "binary/1" do

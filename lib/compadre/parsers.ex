@@ -19,20 +19,29 @@ defmodule Compadre.Parsers do
     end
   end
 
+  def prompt(input, pos, failf, succf) do
+    f = fn
+      "" ->
+        failf.(%Failure{reason: "unexpected end of input"}, input, pos)
+      data ->
+        succf.(%Success{result: nil}, input <> data, pos)
+    end
+
+    %Partial{cont: f}
+  end
+
   # This parser simply demands input immediately if there's no input, otherwise
   # just returns `nil`.
   # Made public for testing.
   @doc false
   @spec demand_input() :: Parser.t(nil, any)
   def demand_input() do
-    Parser.new(&do_demand_input/4)
-  end
-
-  defp do_demand_input(input, pos, failf, succf) do
-    if byte_size(input) == pos do
-      %Partial{cont: &do_demand_input(input <> &1, pos, failf, succf)}
-    else
-      succf.(%Success{result: nil, bytes_consumed: 0}, input, pos)
+    Parser.new fn input, pos, failf, succf ->
+      if byte_size(input) == pos do
+        prompt(input, pos, failf, succf)
+      else
+        succf.(%Success{result: nil, bytes_consumed: 0}, input, pos)
+      end
     end
   end
 
@@ -51,6 +60,12 @@ defmodule Compadre.Parsers do
         succf.(%Success{result: nil, bytes_consumed: nbytes}, input, pos + nbytes)
       _ ->
         %Partial{cont: &do_advance(input <> &1, pos, failf, succf, nbytes)}
+    end
+  end
+
+  def at_end?() do
+    Parser.new fn input, pos, failf, succf ->
+
     end
   end
 

@@ -39,6 +39,17 @@ defmodule Compadre do
            other                -> other
          end)
 
+  def eoi({:partial, cont}) do
+    case cont.("") do
+      %Partial{} -> raise "a parser returned a :partial even on eoi"
+      other      -> other
+    end
+  end
+
+  def eoi(result) do
+    result
+  end
+
   defp terminal_succf() do
     fn(%Success{} = succ, input, pos) ->
       {:ok, succ.result, Helpers.from_position_to_end(input, pos)}

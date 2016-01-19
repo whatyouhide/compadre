@@ -1,7 +1,7 @@
 defmodule Compadre.Parsers do
   alias Compadre.Parser
   alias Compadre.Combinators, as: Combs
-  alias Compadre.Core.{Success, Partial}
+  alias Compadre.Core.{Success, Failure, Partial}
 
   @doc """
   A parser that always returns the given `value`, without consuming input.
@@ -28,10 +28,13 @@ defmodule Compadre.Parsers do
     Parser.new(&do_demand_input/4)
   end
 
-  defp do_demand_input(<<>>, pos, failf, succf),
-    do: %Partial{cont: &do_demand_input(&1, pos, failf, succf)}
-  defp do_demand_input(input, pos, _failf, succf),
-    do: succf.(%Success{result: nil, bytes_consumed: 0}, input, pos)
+  defp do_demand_input(input, pos, failf, succf) do
+    if byte_size(input) == pos do
+      %Partial{cont: &do_demand_input(input <> &1, pos, failf, succf)}
+    else
+      succf.(%Success{result: nil, bytes_consumed: 0}, input, pos)
+    end
+  end
 
   # This parser simply advances by `nbytes` bytes. It never fails: if the input
   # doesn't have enough bytes, it simply returns a continuation.
@@ -97,6 +100,7 @@ defmodule Compadre.Parsers do
   end
 
   @doc """
+  TODO
   """
   @spec peek_bytes(non_neg_integer) :: Parser.t(binary, any)
   def peek_bytes(nbytes) do
@@ -113,14 +117,72 @@ defmodule Compadre.Parsers do
   end
 
   @doc """
+  TODO
   """
   @spec peek_byte() :: Parser.t(byte, any)
   def peek_byte() do
     parser = Parser.new fn input, pos, _failf, succf ->
-      success = %Success{result: :binary.first(input), bytes_consumed: 1}
-      succf.(success, input, pos + 1)
+      success = %Success{result: :binary.at(input, pos), bytes_consumed: 0}
+      succf.(success, input, pos)
     end
 
     Combs.seq(demand_input(), parser)
+  end
+
+  @doc """
+  TODO
+  """
+  def binary(target) do
+    do_binary(target, target)
+  end
+
+  defp do_binary(orig_target, "") do
+    fixed(orig_target)
+  end
+
+  defp do_binary(orig_target, <<first, rest_of_target :: binary>> = target) do
+    Combs.bind peek_byte(), fn
+      ^first ->
+        Combs.seq(advance(1), do_binary(orig_target, rest_of_target))
+      _other_byte ->
+        Parser.new fn input, pos, failf, _succf ->
+          consumed = byte_size(orig_target) - byte_size(target)
+          original_start = pos - consumed
+          remaining_input_size = byte_size(input) - original_start
+          failing_input = :binary.part(input,
+                                       original_start,
+                                       min(remaining_input_size, byte_size(orig_target)))
+
+          msg = "expected #{inspect orig_target}, found #{inspect failing_input}"
+          failf.(%Failure{reason: msg}, input, original_start)
+        end
+    end
+  end
+
+  @doc """
+  TODO
+  """
+  # TODO spec
+  def satisfy_after_transforming(transformation, pred) do
+    Combs.bind peek_byte(), fn b ->
+      transformed = transformation.(b)
+      if pred.(transformed) do
+        Combs.seq(advance(1), fixed(transformed))
+      else
+        Parser.new fn input, pos, failf, _succf ->
+          reason = "expected byte #{b} to satisfy the given predicate (after" <>
+                   " being transformed), but it didn't"
+          failf.(%Failure{reason: reason}, input, pos)
+        end
+      end
+    end
+  end
+
+  @doc """
+  TODO
+  """
+  # TODO spec
+  def satisfy(pred) do
+    satisfy_after_transforming(&(&1), pred)
   end
 end

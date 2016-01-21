@@ -10,9 +10,11 @@ defmodule Compadre.ParsersTest do
     assert Compadre.parse(p, "") == {:ok, :hello_world, ""}
   end
 
-  test "demand_input/0" do
+  test "demand_input/0 when there is available input" do
     assert Compadre.parse(demand_input(), "foo") == {:ok, nil, "foo"}
+  end
 
+  test "demand_input/0 when we wait for new input" do
     # Works both if we're at the very beginning of the input...
     assert {:partial, _} = res = Compadre.parse(demand_input(), "")
     assert Compadre.feed(res, "foo") == {:ok, nil, "foo"}
@@ -20,8 +22,10 @@ defmodule Compadre.ParsersTest do
     # ...as well as in the middle of it.
     assert {:partial, _} = res = parse_test(demand_input(), "a", pos: 1)
     assert Compadre.feed(res, "foo") == {:ok, nil, "foo"}
+  end
 
-    assert {:error, _, _} =
+  test "demand_input/0 when we reach eoi" do
+    assert {:error, "unexpected end of input", ""} =
       demand_input()
       |> parse_test("skipped", pos: 7)
       |> Compadre.eoi()
@@ -35,17 +39,11 @@ defmodule Compadre.ParsersTest do
       |> parse_test("foohe", pos: 3)
       |> Compadre.feed("ll")
       |> Compadre.feed("o world")
-  end
 
-  test "with_consumed_input/1" do
-    parser = with_consumed_input(advance(3))
-    assert {:ok, {nil, "foo"}, "rest"} = Compadre.parse(parser, "foorest")
-
-    assert {:ok, {nil, "foo"}, "rest"} =
-      parser
-      |> Compadre.parse("f")
-      |> Compadre.feed("o")
-      |> Compadre.feed("orest")
+    assert {:error, "expected to have 3 bytes available, only got 2", "ba"} =
+      advance(3)
+      |> parse_test("fooba", pos: 3)
+      |> Compadre.eoi()
   end
 
   test "take_bytes/1" do
@@ -54,6 +52,11 @@ defmodule Compadre.ParsersTest do
       |> parse_test("ignoreme he", pos: byte_size("ignoreme "))
       |> Compadre.feed("ll")
       |> Compadre.feed("o world!")
+
+    assert {:error, _, _} =
+      take_bytes(5)
+      |> parse_test("foobar", pos: 3)
+      |> Compadre.eoi()
   end
 
   test "peek_bytes/1" do
@@ -69,7 +72,7 @@ defmodule Compadre.ParsersTest do
       |> parse_test(<<0>>, pos: 1)
       |> Compadre.feed(<<1, 2, 3>>)
 
-    assert {:error, "unexpected end of input", ""} =
+    assert {:error, _, ""} =
       peek_byte()
       |> parse_test(<<>>)
       |> Compadre.eoi()
@@ -89,15 +92,5 @@ defmodule Compadre.ParsersTest do
 
     msg = ~s(expected "foo", found "fba")
     assert {:error, ^msg, "fbar"} = parse_test(parser, "fbar")
-  end
-
-  test "satisfy_after_transforming/2" do
-    parser = satisfy_after_transforming(&[&1], &(&1 == 'h'))
-    assert {:ok, 'h', "rest"} = parse_test(parser, "hrest")
-  end
-
-  test "satisfy/1" do
-    parser = satisfy(&(&1 in 'aeiou'))
-    assert {:ok, ?o, "kay"} = parse_test(parser, "okay")
   end
 end

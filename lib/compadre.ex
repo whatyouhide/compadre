@@ -1,18 +1,19 @@
 defmodule Compadre do
-  alias Compadre.Core
   alias Compadre.Helpers
-  alias Compadre.Core.{Success, Failure, Partial}
+  alias Compadre.State
+  alias Compadre.Partial
   alias Compadre.Parser
 
   @doc """
   TODO
   """
-  # TODO fix this spec
-  @spec parse(Parser.t, binary) :: {:ok, any, binary}
-                                 | {:error, any, binary}
-                                 | {:partial, (... -> any)}
+  # TODO spec
   def parse(parser, input) do
-    case Parser.apply(parser, input, 0, terminal_failf(), terminal_succf()) do
+    failf0 = terminal_failf()
+    succf0 = terminal_succf()
+    state0 = %State{input: input, pos: 0, complete?: false}
+
+    case Parser.apply(parser, state0, failf0, succf0) do
       %Partial{cont: cont} -> {:partial, cont}
       other                -> other
     end
@@ -26,7 +27,7 @@ defmodule Compadre do
   result is a partial result (a continuation), then that continuation will be
   called with `input` as its input.
   """
-  @spec feed(Core.result(t1, t2), binary) :: Core.result(t1, t2) when t1: any, t2: any
+  # TODO spec
   def feed(result, input)
 
   def feed({:ok, result, rest}, input),
@@ -39,6 +40,7 @@ defmodule Compadre do
            other                -> other
          end)
 
+  # TODO spec
   def eoi({:partial, cont}) do
     case cont.("") do
       %Partial{} -> raise "a parser returned a :partial even on eoi"
@@ -51,55 +53,18 @@ defmodule Compadre do
   end
 
   defp terminal_succf() do
-    fn(%Success{} = succ, input, pos) ->
-      {:ok, succ.result, Helpers.from_position_to_end(input, pos)}
+    fn(result, %State{} = state) ->
+      {:ok, result, remaining_input(state)}
     end
   end
 
   defp terminal_failf() do
-    fn(%Failure{} = fail, input, pos) ->
-      {:error, fail.reason, Helpers.from_position_to_end(input, pos)}
+    fn(reason, %State{} = state) ->
+      {:error, reason, remaining_input(state)}
     end
   end
 
-  defmacro compose(do: block) do
-    case block do
-      {:__block__, _meta, actions} ->
-        expand_actions(actions)
-      action ->
-        expand_actions([action])
-    end
-    |> (fn q -> IO.puts(Macro.to_string(q)); q end).()
-  end
-
-  defp expand_actions([{op, _, _} = code]) when op in [:=, :<-] do
-    raise ArgumentError, "the last action in a compose block cannot be an" <>
-                         " assignment (<- or =) as it must be a parser," <>
-                         " got: #{Macro.to_string(code)}"
-  end
-
-  defp expand_actions([action]) do
-    action
-  end
-
-  defp expand_actions([{:<-, _meta, [var, parser]}|rest]) do
-    quote do
-      Compadre.bind unquote(parser), fn(unquote(var)) ->
-        unquote(expand_actions(rest))
-      end
-    end
-  end
-
-  defp expand_actions([{:=, _, _} = code|rest]) do
-    quote do
-      unquote(code)
-      unquote(expand_actions(rest))
-    end
-  end
-
-  defp expand_actions([action|rest]) do
-    quote do
-      Compadre.seq(unquote(action), unquote(expand_actions(rest)))
-    end
+  defp remaining_input(%State{input: input, pos: pos}) do
+    Helpers.from_position_to_end(input, pos)
   end
 end

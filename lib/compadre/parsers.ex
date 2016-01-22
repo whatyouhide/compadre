@@ -2,7 +2,6 @@ defmodule Compadre.Parsers do
   alias Compadre.Parser
   alias Compadre.State
   alias Compadre.Partial
-  alias Compadre.Helpers
   alias Compadre.Combinators, as: Combs
 
   ## Core parsers ##

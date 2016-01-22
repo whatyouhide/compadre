@@ -1,7 +1,6 @@
 defmodule Compadre.Combinators do
   alias Compadre.Parser
   alias Compadre.Parsers
-  alias Compadre.State
 
   ## Core parser combinators ##
 

@@ -32,96 +32,51 @@ defmodule Compadre.ParsersTest do
   end
 
   test "advance/1" do
-    assert Compadre.parse(advance(1), "foo") == {:ok, nil, "oo"}
+    assert_parse_result advance(5), "hello world", {:ok, nil, " world"}
 
-    assert {:ok, nil, "world"} =
-      advance(6)
-      |> parse_test("foohe", pos: 3)
-      |> Compadre.feed("ll")
-      |> Compadre.feed("o world")
-
-    assert {:error, "expected to have 3 bytes available, only got 2", "ba"} =
-      advance(3)
-      |> parse_test("fooba", pos: 3)
-      |> Compadre.eoi()
+    msg = "expected to have 5 bytes available, only got 3"
+    assert_parse_result advance(5), {"foo", :eoi}, {:error, ^msg, "foo"}
   end
 
   test "take_bytes/1" do
-    assert {:ok, "hello", " world!"} =
-      take_bytes(5)
-      |> parse_test("ignoreme he", pos: byte_size("ignoreme "))
-      |> Compadre.feed("ll")
-      |> Compadre.feed("o world!")
+    assert_parse_result take_bytes(5), "hello world!", {:ok, "hello", " world!"}
 
-    assert {:error, _, _} =
-      take_bytes(5)
-      |> parse_test("foobar", pos: 3)
-      |> Compadre.eoi()
+    msg = "expected to have 5 bytes available, only got 3"
+    assert_parse_result take_bytes(5), {"foo", :eoi}, {:error, ^msg, "foo"}
   end
 
   test "peek_bytes/1" do
-    assert {:ok, "hello", "hello world!"} =
-      peek_bytes(5)
-      |> parse_test("foohel", pos: 3)
-      |> Compadre.feed("lo world!")
+    assert_parse_result peek_bytes(5), "hello world", {:ok, "hello", "hello world"}
   end
 
   test "peek_byte/0" do
-    assert {:ok, 1, <<1, 2, 3>>} =
-      peek_byte()
-      |> parse_test(<<0>>, pos: 1)
-      |> Compadre.feed(<<1, 2, 3>>)
-
-    assert {:error, _, ""} =
-      peek_byte()
-      |> parse_test(<<>>)
-      |> Compadre.eoi()
+    assert_parse_result peek_byte(), "foo", {:ok, ?f, "foo"}
+    assert_parse_result peek_byte(), {"", :eoi}, {:error, _, ""}
   end
 
   test "take_byte/0" do
-    assert {:ok, 1, <<2, 3>>} =
-      take_byte()
-      |> parse_test(<<0>>, pos: 1)
-      |> Compadre.feed(<<1, 2, 3>>)
-
-    assert {:error, _, ""} =
-      peek_byte()
-      |> parse_test(<<>>)
-      |> Compadre.eoi()
+    assert_parse_result take_byte(), "foo", {:ok, ?f, "oo"}
+    assert_parse_result take_byte(), {"", :eoi}, {:error, _, ""}
   end
 
   test "at_end?/0" do
-    assert {:ok, true, ""} =
-      at_end?()
-      |> parse_test("foo", pos: 3)
-      |> Compadre.eoi()
-
-    assert {:ok, false, "bar"} =
-      at_end?()
-      |> parse_test("foo", pos: 3)
-      |> Compadre.feed("bar")
+    assert_parse_result at_end?(), {"", :eoi}, {:ok, true, ""}
+    assert_parse_result at_end?(), "foo", {:ok, false, "foo"}
   end
 
   test "eoi/0" do
-    assert {:ok, _, ""} =
-      eoi()
-      |> parse_test("foo", pos: 3)
-      |> Compadre.eoi()
-
-    assert {:error, "expected end of input", "bar"} =
-      eoi()
-      |> parse_test("foo", pos: 3)
-      |> Compadre.feed("bar")
+    assert_parse_result eoi(), {"", :eoi}, {:ok, _, ""}
+    assert_parse_result eoi(), "bar", {:error, "expected end of input", "bar"}
   end
 
   test "binary/1" do
     parser = binary("foo")
 
-    assert {:ok, "foo", "bar"} =
-      parser
-      |> parse_test("hey", pos: 3)
-      |> Compadre.feed("fo")
-      |> Compadre.feed("obar")
+    assert_parse_result parser, "foobar", {:ok, "foo", "bar"}
+
+    # We'll leave these two tests as is because with randomly crafted inputs we
+    # can't be sure about the error message (e.g., if the input is "bar" we can
+    # say 'found "bar"', if it's "ba" we have to say 'found "ba"').
 
     msg = ~s(expected "foo", found "bar")
     assert {:error, ^msg, "barbaz"} = parse_test(parser, "heybarbaz", pos: 3)

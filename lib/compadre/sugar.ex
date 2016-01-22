@@ -49,9 +49,9 @@ defmodule Compadre.Sugar do
 
   # Expands the last action in the `combine` block. If that action is a <- or =
   # assignment, raise an error (as a parser must be returned from the block).
-  defp expand_last_action([{op, _, _} = code]) when op in [:=, :<-],
+  defp expand_last_action({op, _, _} = code) when op in [:=, :<-],
     do: raise(ArgumentError, "the last action in a combine block cannot be an" <>
                              " assignment (<- or =) as it must be a parser," <>
                              " got: #{Macro.to_string(code)}")
-  defp expand_last_action([action]), do: action
+  defp expand_last_action(action), do: action
 end

@@ -88,6 +88,18 @@ defmodule Compadre.Parsers do
     Combs.transform(input_available?(), &Kernel.not/1)
   end
 
+  def eoi() do
+    Parser.new fn state, failf, succf ->
+      Parser.apply at_end?(), state, failf, fn end?, nstate ->
+        if end? do
+          succf.(nil, nstate)
+        else
+          failf.("expected end of input", nstate)
+        end
+      end
+    end
+  end
+
   ## Parsers implemented "natively" for performance ##
 
   def binary(target) do
@@ -139,9 +151,13 @@ defmodule Compadre.Parsers do
   # `failf` is the next given input is empty (i.e., we reached the final eoi) or
   # `succf` if the new input is not empty.
   defp prompt(%State{} = state, failf, succf) do
-    Partial.new fn
-      ""   -> failf.(nil, %{state | complete?: true})
-      data -> succf.(nil, %{state | input: state.input <> data, complete?: false})
+    if state.complete? do
+      failf.(nil, state)
+    else
+      Partial.new fn
+        ""   -> failf.(nil, %{state | complete?: true})
+        data -> succf.(nil, %{state | input: state.input <> data, complete?: false})
+      end
     end
   end
 

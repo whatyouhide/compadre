@@ -102,6 +102,18 @@ defmodule Compadre.ParsersTest do
       |> Compadre.feed("bar")
   end
 
+  test "eoi/0" do
+    assert {:ok, _, ""} =
+      eoi()
+      |> parse_test("foo", pos: 3)
+      |> Compadre.eoi()
+
+    assert {:error, "expected end of input", "bar"} =
+      eoi()
+      |> parse_test("foo", pos: 3)
+      |> Compadre.feed("bar")
+  end
+
   test "binary/1" do
     parser = binary("foo")
 

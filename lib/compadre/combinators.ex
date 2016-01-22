@@ -121,6 +121,11 @@ defmodule Compadre.Combinators do
     many_until(parser, Parsers.flunk(:never_reached))
   end
 
+  def take_until(end_parser) do
+    take_byte = followed_by(Parsers.peek_byte(), Parsers.advance(1))
+    many_until(take_byte, end_parser) |> transform(&List.to_string/1)
+  end
+
   def one_or_more(parser) do
     # There has to be one, so we first parse with `parser`...
     bind parser, fn res ->

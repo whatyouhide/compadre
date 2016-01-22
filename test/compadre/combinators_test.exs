@@ -121,6 +121,11 @@ defmodule Compadre.CombinatorsTest do
     assert {:ok, [], "bar-stop"} = parse_test(parser, "bar-stop")
   end
 
+  test "take_until/2" do
+    parser = take_until(Ps.binary("foo"))
+    assert {:ok, "before-", "-rest"} = parse_test(parser, "before-foo-rest")
+  end
+
   test "many/1" do
     parser = many(Ps.binary("foo"))
 

@@ -7,12 +7,14 @@ defmodule Compadre.Parsers do
   ## Core parsers ##
   # These parsers do not depend on any parsers or combinators.
 
+  @spec fixed(val) :: Parser.t(any, val) when val: any
   def fixed(value) do
     Parser.new fn state, _failf, succf ->
       succf.(value, state)
     end
   end
 
+  @spec flunk(val) :: Parser.t(val, any) when val: any
   def flunk(error) do
     Parser.new fn state, failf, _succf ->
       failf.(error, state)
@@ -22,6 +24,7 @@ defmodule Compadre.Parsers do
   # This parser simply demands input immediately if there's no input, otherwise
   # just returns `nil`. Fails if we reach eoi.
   # Made public for testing.
+  @spec demand_input() :: Parser.t(any, any)
   def demand_input() do
     Parser.new fn state, failf, succf ->
       if byte_size(state.input) == state.pos do
@@ -36,8 +39,8 @@ defmodule Compadre.Parsers do
   # This parser simply advances by `nbytes` bytes. It doesn't fail if the input
   # doesn't have enough bytes, it simply returns a continuation. If we reach
   # eoi, it fails.
-  @spec advance(non_neg_integer) :: Parser.t(nil, any)
-  def advance(nbytes) do
+  @spec advance(non_neg_integer) :: Parser.t(any, nil)
+  def advance(nbytes) when is_integer(nbytes) and nbytes >= 0 do
     Parser.new(&do_advance(&1, &2, &3, nbytes))
   end
 
@@ -60,34 +63,41 @@ defmodule Compadre.Parsers do
 
   ## Parsers that depend on other parsers/combinators ##
 
-  def take_bytes(nbytes) do
+  @spec take_bytes(non_neg_integer) :: Parser.t(any, binary)
+  def take_bytes(nbytes) when is_integer(nbytes) and nbytes >= 0 do
     advance(nbytes)
     |> Combs.with_consumed_input()
     |> Combs.transform(fn {nil, consumed} -> consumed end)
   end
 
-  def peek_bytes(nbytes) do
+  @spec peek_bytes(non_neg_integer) :: Parser.t(any, binary)
+  def peek_bytes(nbytes) when is_integer(nbytes) and nbytes >= 0 do
     Combs.look_ahead(take_bytes(nbytes))
   end
 
+  @spec peek_byte() :: Parser.t(any, byte)
   def peek_byte() do
     Combs.transform(peek_bytes(1), fn <<b>> -> b end)
   end
 
+  @spec take_byte() :: Parser.t(any, byte)
   def take_byte() do
     Combs.followed_by(peek_byte(), advance(1))
   end
 
+  @spec until_binary(binary) :: Parser.t(any, binary)
   def until_binary(target) do
     advance_until_binary(target)
     |> Combs.with_consumed_input()
     |> Combs.transform(fn {_, bin} -> :binary.part(bin, 0, byte_size(bin) - byte_size(target)) end)
   end
 
+  @spec at_end?() :: Parser.t(any, boolean)
   def at_end?() do
     Combs.transform(input_available?(), &Kernel.not/1)
   end
 
+  @spec eoi() :: Parser.t(binary, nil)
   def eoi() do
     Parser.new fn state, failf, succf ->
       Parser.apply at_end?(), state, failf, fn end?, nstate ->
@@ -102,6 +112,7 @@ defmodule Compadre.Parsers do
 
   ## Parsers implemented "natively" for performance ##
 
+  @spec binary(binary) :: Parser.t(any, binary)
   def binary(target) do
     # Could be implemented using `peek_byte()` and comparing each byte with the
     # corresponding byte in `target`, but that performs terribly when the binary
@@ -127,6 +138,7 @@ defmodule Compadre.Parsers do
     end
   end
 
+  @spec advance_until_binary(binary) :: Parser.t(any, binary)
   def advance_until_binary(target) do
     Parser.new(&do_advance_until_binary(&1, &2, &3, target, byte_size(target)))
   end

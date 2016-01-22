@@ -36,6 +36,8 @@ defmodule Compadre.CombinatorsTest do
       |> parse_test("foob", pos: 3)
       |> Compadre.feed("a")
       |> Compadre.feed("z rest")
+
+    # TODO test that the error message mentions both parsers
   end
 
   test "look_ahead/1" do

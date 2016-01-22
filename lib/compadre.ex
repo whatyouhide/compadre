@@ -4,6 +4,14 @@ defmodule Compadre do
   alias Compadre.Partial
   alias Compadre.Parser
 
+  @type parse_result(failt, succt) ::
+    {:ok, succt, binary}
+    | {:error, failt, binary}
+    | {:partial, (binary -> parse_result(failt, succt))}
+
+  @spec parse(Parser.t(failt, succt), binary) ::
+    parse_result(failt, succt)
+    when failt: any, succt: any
   def parse(parser, input) do
     state0 = %State{input: input, pos: 0, complete?: false}
 
@@ -13,6 +21,9 @@ defmodule Compadre do
     end
   end
 
+  @spec parse_in_one_shot(Parser.t(failt, succt), binary) ::
+    parse_result(failt, succt)
+    when failt: any, succt: any
   def parse_in_one_shot(parser, input) do
     state0 = %State{input: input, pos: 0, complete?: true}
     case Parser.apply(parser, state0, terminal_failf(), terminal_succf()) do
@@ -29,7 +40,8 @@ defmodule Compadre do
   result is a partial result (a continuation), then that continuation will be
   called with `input` as its input.
   """
-  # TODO spec
+  @spec feed(parse_result(failt, succt), binary) :: parse_result(failt, succt)
+    when failt: any, succt: any
   def feed(result, input)
 
   def feed({:ok, result, rest}, input),
@@ -42,7 +54,7 @@ defmodule Compadre do
            other                -> other
          end)
 
-  # TODO spec
+  @spec eoi({:partial, (binary -> val)}) :: val when val: any
   def eoi({:partial, cont}) do
     case cont.("") do
       %Partial{} -> raise "a parser returned a :partial even on eoi"

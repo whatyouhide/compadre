@@ -23,7 +23,7 @@ defmodule Compadre.Partial do
 end
 
 defmodule Compadre.State do
-  @opaque t :: %__MODULE__{
+  @type t :: %__MODULE__{
     input: binary,
     pos: non_neg_integer,
     complete?: boolean,

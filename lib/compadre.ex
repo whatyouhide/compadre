@@ -4,18 +4,20 @@ defmodule Compadre do
   alias Compadre.Partial
   alias Compadre.Parser
 
-  @doc """
-  TODO
-  """
-  # TODO spec
   def parse(parser, input) do
-    failf0 = terminal_failf()
-    succf0 = terminal_succf()
     state0 = %State{input: input, pos: 0, complete?: false}
 
-    case Parser.apply(parser, state0, failf0, succf0) do
+    case Parser.apply(parser, state0, terminal_failf(), terminal_succf()) do
       %Partial{cont: cont} -> {:partial, cont}
       other                -> other
+    end
+  end
+
+  def parse_in_one_shot(parser, input) do
+    state0 = %State{input: input, pos: 0, complete?: true}
+    case Parser.apply(parser, state0, terminal_failf(), terminal_succf()) do
+      %Partial{} -> raise "this should never happen!"
+      other      -> other
     end
   end
 

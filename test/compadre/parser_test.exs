@@ -1,5 +1,5 @@
 defmodule Compadre.ParserTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   alias Compadre.Parser
 

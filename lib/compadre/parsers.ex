@@ -2,6 +2,7 @@ defmodule Compadre.Parsers do
   alias Compadre.Parser
   alias Compadre.State
   alias Compadre.Partial
+  alias Compadre.Helpers
   alias Compadre.Combinators, as: Combs
 
   ## Core parsers ##
@@ -70,36 +71,66 @@ defmodule Compadre.Parsers do
     Combs.look_ahead(take_bytes(nbytes))
   end
 
+  def take_byte() do
+    Combs.followed_by(peek_byte(), advance(1))
+  end
+
   def peek_byte() do
     Combs.transform(peek_bytes(1), fn <<b>> -> b end)
   end
 
+  def until_binary(target) do
+    advance_until_binary(target)
+    |> Combs.with_consumed_input()
+    |> Combs.transform(fn {_, bin} -> :binary.part(bin, 0, byte_size(bin) - byte_size(target)) end)
+  end
+
+  ## Parsers implemented "natively" for performance ##
+
   def binary(target) do
-    do_binary(target, target)
+    # Could be implemented using `peek_byte()` and comparing each byte with the
+    # corresponding byte in `target`, but that performs terribly when the binary
+    # we expect is already there (which shouldn't be a rare case, at all!).
+    Parser.new(&do_binary(&1, &2, &3, target, byte_size(target)))
   end
 
-  defp do_binary(orig_target, "") do
-    fixed(orig_target)
+  defp do_binary(state, failf, succf, target, target_size) do
+    pos          = state.pos
+    segment_size = min(target_size, byte_size(state.input) - pos)
+    segment      = :binary.part(state.input, pos, segment_size)
+    lc_prefix    = :binary.longest_common_prefix([segment, target])
+
+    cond do
+      lc_prefix == target_size ->
+        succf.(target, %{state | pos: pos + target_size})
+      segment_size < target_size and lc_prefix == segment_size ->
+        prompt state, failf, fn nil, nstate ->
+          do_binary(nstate, failf, succf, target, target_size)
+        end
+      true ->
+        failf.("expected #{inspect target}, found #{inspect segment}", state)
+    end
   end
 
-  defp do_binary(orig_target, <<first, rest_of_target :: binary>> = target) do
-    Combs.bind peek_byte(), fn
-      ^first ->
-        Combs.seq(advance(1), do_binary(orig_target, rest_of_target))
-      _other_byte ->
-        Parser.new fn state, failf, _succf ->
-          consumed = byte_size(orig_target) - byte_size(target)
-          original_start = state.pos - consumed
-          remaining_input_size = byte_size(state.input) - original_start
-          failing_input = :binary.part(state.input,
-                                       original_start,
-                                       min(remaining_input_size, byte_size(orig_target)))
+  def advance_until_binary(target) do
+    Parser.new(&do_advance_until_binary(&1, &2, &3, target, byte_size(target)))
+  end
 
-          msg = "expected #{inspect orig_target}, found #{inspect failing_input}"
-          failf.(msg, %{state | pos: original_start})
+  def do_advance_until_binary(state, failf, succf, target, target_size) do
+    pos = state.pos
+
+    case state.input do
+      <<_ :: size(pos)-bytes, ^target :: size(target_size)-bytes, _ :: binary>> ->
+        succf.(nil, %{state | pos: pos + target_size})
+      _ ->
+        Parser.apply demand_input(), state, failf, fn nil, nstate ->
+          nstate = %{nstate | pos: pos + 1}
+          do_advance_until_binary(nstate, failf, succf, target, target_size)
         end
     end
   end
+
+  ## Helpers
 
   # Returns a partial result that immediately asks for new input, and calls
   # `failf` is the next given input is empty (i.e., we reached the final eoi) or

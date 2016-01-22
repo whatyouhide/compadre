@@ -38,6 +38,11 @@ defmodule Compadre.CombinatorsTest do
       |> Compadre.feed("z rest")
   end
 
+  test "look_ahead/1" do
+    parser = look_ahead(Ps.binary("foo"))
+    assert {:ok, "foo", "foobar"} = parse_test(parser, "_foobar", pos: 1)
+  end
+
   test "with_consumed_input/1" do
     parser = with_consumed_input(Ps.advance(3))
     assert {:ok, {nil, "foo"}, "rest"} = Compadre.parse(parser, "foorest")
@@ -71,11 +76,6 @@ defmodule Compadre.CombinatorsTest do
   end
 
   ## Combinators that are built upon the "core" combinators ##
-
-  test "look_ahead/1" do
-    parser = look_ahead(Ps.binary("foo"))
-    assert {:ok, "foo", "foobar"} = parse_test(parser, "_foobar", pos: 1)
-  end
 
   test "seq/2: the first parser succeeds" do
     parser = seq(Ps.take_bytes(1), Ps.take_bytes(2))

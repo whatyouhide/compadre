@@ -78,6 +78,30 @@ defmodule Compadre.ParsersTest do
       |> Compadre.eoi()
   end
 
+  test "take_byte/0" do
+    assert {:ok, 1, <<2, 3>>} =
+      take_byte()
+      |> parse_test(<<0>>, pos: 1)
+      |> Compadre.feed(<<1, 2, 3>>)
+
+    assert {:error, _, ""} =
+      peek_byte()
+      |> parse_test(<<>>)
+      |> Compadre.eoi()
+  end
+
+  test "at_end?/0" do
+    assert {:ok, true, ""} =
+      at_end?()
+      |> parse_test("foo", pos: 3)
+      |> Compadre.eoi()
+
+    assert {:ok, false, "bar"} =
+      at_end?()
+      |> parse_test("foo", pos: 3)
+      |> Compadre.feed("bar")
+  end
+
   test "binary/1" do
     parser = binary("foo")
 

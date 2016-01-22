@@ -71,18 +71,22 @@ defmodule Compadre.Parsers do
     Combs.look_ahead(take_bytes(nbytes))
   end
 
-  def take_byte() do
-    Combs.followed_by(peek_byte(), advance(1))
-  end
-
   def peek_byte() do
     Combs.transform(peek_bytes(1), fn <<b>> -> b end)
+  end
+
+  def take_byte() do
+    Combs.followed_by(peek_byte(), advance(1))
   end
 
   def until_binary(target) do
     advance_until_binary(target)
     |> Combs.with_consumed_input()
     |> Combs.transform(fn {_, bin} -> :binary.part(bin, 0, byte_size(bin) - byte_size(target)) end)
+  end
+
+  def at_end?() do
+    Combs.transform(input_available?(), &Kernel.not/1)
   end
 
   ## Parsers implemented "natively" for performance ##
@@ -139,6 +143,20 @@ defmodule Compadre.Parsers do
     Partial.new fn
       ""   -> failf.(nil, %{state | complete?: true})
       data -> succf.(nil, %{state | input: state.input <> data, complete?: false})
+    end
+  end
+
+  # This parser returns `false` if we reached eoi, otherwise (if input is
+  # available or it can be in the future) `true`. This parser always succeeds.
+  defp input_available?() do
+    Parser.new fn state, _failf, succf ->
+      if byte_size(state.input) == state.pos do
+        pfailf = fn nil, nstate -> succf.(false, nstate) end
+        psuccf = fn nil, nstate -> succf.(true, nstate) end
+        prompt state, pfailf, psuccf
+      else
+        succf.(true, state)
+      end
     end
   end
 end

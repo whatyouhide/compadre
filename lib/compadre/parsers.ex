@@ -85,13 +85,6 @@ defmodule Compadre.Parsers do
     Combs.followed_by(peek_byte(), advance(1))
   end
 
-  @spec until_binary(binary) :: Parser.t(any, binary)
-  def until_binary(target) do
-    advance_until_binary(target)
-    |> Combs.with_consumed_input()
-    |> Combs.transform(fn {_, bin} -> :binary.part(bin, 0, byte_size(bin) - byte_size(target)) end)
-  end
-
   @spec at_end?() :: Parser.t(any, boolean)
   def at_end?() do
     Combs.transform(input_available?(), &Kernel.not/1)
@@ -150,21 +143,23 @@ defmodule Compadre.Parsers do
     end
   end
 
-  @spec advance_until_binary(binary) :: Parser.t(any, binary)
-  def advance_until_binary(target) do
-    Parser.new(&do_advance_until_binary(&1, &2, &3, target, byte_size(target)))
+  @spec until_binary(binary) :: Parser.t(any, binary)
+  def until_binary(target) do
+    Parser.new(&do_until_binary(&1, &2, &3, target, byte_size(target), demand_input()))
   end
 
-  def do_advance_until_binary(state, failf, succf, target, target_size) do
-    pos = state.pos
+  def do_until_binary(state, failf, succf, target, target_size, di, orig_pos \\ nil) do
+    orig_pos = orig_pos || state.pos
+    pos      = state.pos
 
     case state.input do
       <<_ :: size(pos)-bytes, ^target :: size(target_size)-bytes, _ :: binary>> ->
-        succf.(nil, %{state | pos: pos + target_size})
+        result = :binary.part(state.input, orig_pos, pos - orig_pos)
+        succf.(result, %{state | pos: pos + target_size})
       _ ->
-        Parser.apply demand_input(), state, failf, fn nil, nstate ->
+        Parser.apply di, state, failf, fn _, nstate ->
           nstate = %{nstate | pos: pos + 1}
-          do_advance_until_binary(nstate, failf, succf, target, target_size)
+          do_until_binary(nstate, failf, succf, target, target_size, di, orig_pos)
         end
     end
   end

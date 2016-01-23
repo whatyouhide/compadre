@@ -110,6 +110,18 @@ defmodule Compadre.Parsers do
     end
   end
 
+  def take_bytes_while(pred) when is_function(pred, 1) do
+    Combs.bind(peek_byte(), fn b ->
+      if pred.(b) do
+        Combs.seq(advance(1), take_bytes_while(pred))
+      else
+        fixed(:ok)
+      end
+    end)
+    |> Combs.with_consumed_input()
+    |> Combs.transform(fn {_, bin} -> bin end)
+  end
+
   ## Parsers implemented "natively" for performance ##
 
   @spec binary(binary) :: Parser.t(any, binary)

@@ -19,6 +19,16 @@ defmodule Compadre.CombinatorsTest do
     assert_parse_result parser, "bar", {:error, "error", "bar"}
   end
 
+  test "bind/2: raises if the function doesn't return a parser" do
+    parser = bind(Ps.fixed(:ok), fn :ok -> :not_a_parser end)
+
+    msg = "the second argument passed to bind/2 must be a function that" <>
+          " returns a %Compadre.Parser{}, got: :not_a_parser"
+    assert_raise ArgumentError, msg, fn ->
+      parse_test(parser, "foo")
+    end
+  end
+
   test "plus/2" do
     parser = plus(Ps.binary("bar"), Ps.binary("baz"))
 

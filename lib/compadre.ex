@@ -68,17 +68,13 @@ defmodule Compadre do
 
   defp terminal_succf() do
     fn(result, %State{} = state) ->
-      {:ok, result, remaining_input(state)}
+      {:ok, result, Helpers.from_position_to_end(state)}
     end
   end
 
   defp terminal_failf() do
     fn(reason, %State{} = state) ->
-      {:error, reason, remaining_input(state)}
+      {:error, reason, Helpers.from_position_to_end(state)}
     end
-  end
-
-  defp remaining_input(%State{input: input, pos: pos}) do
-    Helpers.from_position_to_end(input, pos)
   end
 end

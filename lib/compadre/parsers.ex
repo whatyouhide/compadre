@@ -2,6 +2,7 @@ defmodule Compadre.Parsers do
   alias Compadre.Parser
   alias Compadre.State
   alias Compadre.Partial
+  alias Compadre.Helpers
   alias Compadre.Combinators, as: Combs
 
   ## Core parsers ##
@@ -170,14 +171,16 @@ defmodule Compadre.Parsers do
   end
 
   defp do_int(state, failf, succf) do
-    target = Compadre.Helpers.from_position_to_end(state.input, state.pos)
+    input_size = byte_size(state.input)
+    target     = Helpers.from_position_to_end(state, input_size)
+
     case Integer.parse(target) do
       {i, ""} ->
         prompt state,
                fn(_, nstate) -> succf.(i, nstate) end,
                fn(_, nstate) -> do_int(nstate, failf, succf) end
       {i, rest} ->
-        succf.(i, %{state | pos: byte_size(state.input) - byte_size(rest)})
+        succf.(i, %{state | pos: input_size - byte_size(rest)})
       :error ->
         failf.("expected integer", state)
     end

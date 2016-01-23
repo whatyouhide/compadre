@@ -157,6 +157,25 @@ defmodule Compadre.Parsers do
     end
   end
 
+  @spec int() :: Parser.t(any, integer)
+  def int() do
+    Compadre.Parser.new(&do_int/3)
+  end
+
+  defp do_int(state, failf, succf) do
+    target = Compadre.Helpers.from_position_to_end(state.input, state.pos)
+    case Integer.parse(target) do
+      {i, ""} ->
+        prompt state,
+               fn(_, nstate) -> succf.(i, nstate) end,
+               fn(_, nstate) -> do_int(nstate, failf, succf) end
+      {i, rest} ->
+        succf.(i, %{state | pos: byte_size(state.input) - byte_size(rest)})
+      :error ->
+        failf.("expected integer", state)
+    end
+  end
+
   ## Helpers
 
   # Returns a partial result that immediately asks for new input, and calls

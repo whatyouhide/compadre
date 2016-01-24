@@ -10,14 +10,14 @@ defmodule Compadre.Parsers do
 
   @spec fixed(val) :: Parser.t(any, val) when val: any
   def fixed(value) do
-    Parser.new fn state, _failf, succf ->
+    Parser.new fn(state, _failf, succf) ->
       succf.(value, state)
     end
   end
 
   @spec flunk(val) :: Parser.t(val, any) when val: any
   def flunk(error) do
-    Parser.new fn state, failf, _succf ->
+    Parser.new fn(state, failf, _succf) ->
       failf.(error, state)
     end
   end
@@ -27,10 +27,11 @@ defmodule Compadre.Parsers do
   # Made public for testing.
   @spec demand_input() :: Parser.t(any, any)
   def demand_input() do
-    Parser.new fn state, failf, succf ->
-      if byte_size(state.input) == state.pos do
+    Parser.new fn(%State{input: input, pos: pos} = state, failf, succf) ->
+      # If we're at the end of the current input
+      if byte_size(input) == pos do
         nfailf = fn nil, nstate -> failf.("unexpected end of input", nstate) end
-        prompt(state, nfailf, succf)
+        Helpers.prompt(state, nfailf, succf)
       else
         succf.(nil, state)
       end
@@ -52,13 +53,13 @@ defmodule Compadre.Parsers do
       _ ->
         nfailf = fn nil, nstate ->
           avail_bytes = byte_size(nstate.input) - nstate.pos
-          msg  = "expected to have #{nbytes} bytes available, only got #{avail_bytes}"
+          msg = "expected to have #{nbytes} bytes available, only got #{avail_bytes}"
           failf.(msg, nstate)
         end
         nsuccf = fn nil, nstate ->
           do_advance(nstate, failf, succf, nbytes)
         end
-        prompt(state, nfailf, nsuccf)
+        Helpers.prompt(state, nfailf, nsuccf)
     end
   end
 
@@ -68,7 +69,7 @@ defmodule Compadre.Parsers do
   def take_bytes(nbytes) when is_integer(nbytes) and nbytes >= 0 do
     advance(nbytes)
     |> Combs.with_consumed_input()
-    |> Combs.transform(fn {nil, consumed} -> consumed end)
+    |> Combs.transform(fn {_, consumed} -> consumed end)
   end
 
   @spec peek_bytes(non_neg_integer) :: Parser.t(any, binary)
@@ -93,13 +94,10 @@ defmodule Compadre.Parsers do
 
   @spec eoi() :: Parser.t(binary, nil)
   def eoi() do
-    Parser.new fn state, failf, succf ->
-      Parser.apply at_end?(), state, failf, fn end?, nstate ->
-        if end? do
-          succf.(nil, nstate)
-        else
-          failf.("expected end of input", nstate)
-        end
+    Parser.new fn(state, failf, succf) ->
+      Parser.apply at_end?(), state, failf, fn
+        true, nstate  -> succf.(nil, nstate)
+        false, nstate -> failf.("expected end of input", nstate)
       end
     end
   end
@@ -126,17 +124,16 @@ defmodule Compadre.Parsers do
     Parser.new(&do_binary(&1, &2, &3, target, byte_size(target)))
   end
 
-  defp do_binary(state, failf, succf, target, target_size) do
-    pos          = state.pos
-    segment_size = min(target_size, byte_size(state.input) - pos)
-    segment      = :binary.part(state.input, pos, segment_size)
+  defp do_binary(%State{input: input, pos: pos} = state, failf, succf, target, target_size) do
+    segment_size = min(target_size, byte_size(input) - pos)
+    segment      = :binary.part(input, pos, segment_size)
     lc_prefix    = :binary.longest_common_prefix([segment, target])
 
     cond do
       lc_prefix == target_size ->
         succf.(target, %{state | pos: pos + target_size})
       segment_size < target_size and lc_prefix == segment_size ->
-        prompt state, failf, fn nil, nstate ->
+        Helpers.prompt state, failf, fn(nil, nstate) ->
           do_binary(nstate, failf, succf, target, target_size)
         end
       true ->
@@ -176,9 +173,9 @@ defmodule Compadre.Parsers do
 
     case Integer.parse(target) do
       {i, ""} ->
-        prompt state,
-               fn(_, nstate) -> succf.(i, nstate) end,
-               fn(_, nstate) -> do_int(nstate, failf, succf) end
+        Helpers.prompt state,
+                       fn(_, nstate) -> succf.(i, nstate) end,
+                       fn(_, nstate) -> do_int(nstate, failf, succf) end
       {i, rest} ->
         succf.(i, %{state | pos: input_size - byte_size(rest)})
       :error ->
@@ -188,20 +185,6 @@ defmodule Compadre.Parsers do
 
   ## Helpers
 
-  # Returns a partial result that immediately asks for new input, and calls
-  # `failf` is the next given input is empty (i.e., we reached the final eoi) or
-  # `succf` if the new input is not empty.
-  defp prompt(%State{} = state, failf, succf) do
-    if state.complete? do
-      failf.(nil, state)
-    else
-      Partial.new fn
-        ""   -> failf.(nil, %{state | complete?: true})
-        data -> succf.(nil, %{state | input: state.input <> data, complete?: false})
-      end
-    end
-  end
-
   # This parser returns `false` if we reached eoi, otherwise (if input is
   # available or it can be in the future) `true`. This parser always succeeds.
   defp input_available?() do
@@ -209,7 +192,7 @@ defmodule Compadre.Parsers do
       if byte_size(state.input) == state.pos do
         pfailf = fn nil, nstate -> succf.(false, nstate) end
         psuccf = fn nil, nstate -> succf.(true, nstate) end
-        prompt state, pfailf, psuccf
+        Helpers.prompt(state, pfailf, psuccf)
       else
         succf.(true, state)
       end

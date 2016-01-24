@@ -15,11 +15,6 @@ defmodule Compadre.ParsersTest do
   end
 
   test "demand_input/0 when we wait for new input" do
-    # Works both if we're at the very beginning of the input...
-    assert {:partial, _} = res = Compadre.parse(demand_input(), "")
-    assert Compadre.feed(res, "foo") == {:ok, nil, "foo"}
-
-    # ...as well as in the middle of it.
     assert {:partial, _} = res = parse_test(demand_input(), "a", pos: 1)
     assert Compadre.feed(res, "foo") == {:ok, nil, "foo"}
   end

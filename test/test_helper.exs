@@ -6,7 +6,9 @@ defmodule Compadre.TestHelper do
 
   def parse_test(%Parser{} = p, input, opts \\ []) when is_list(opts) do
     parser = Parser.new fn state, failf, succf ->
-      state = %State{pos: opts[:pos] || state.pos, input: state.input}
+      state = %State{pos: opts[:pos] || state.pos,
+                     complete?: opts[:complete?] || false,
+                     input: state.input}
       Parser.apply(p, state, failf, succf)
     end
 

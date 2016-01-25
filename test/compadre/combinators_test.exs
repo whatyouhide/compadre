@@ -30,7 +30,7 @@ defmodule Compadre.CombinatorsTest do
   end
 
   test "plus/2" do
-    parser = plus(Ps.binary("bar"), Ps.binary("baz"))
+    parser = plus(Ps.Binary.binary("bar"), Ps.Binary.binary("baz"))
 
     assert_parse_result parser, "bar rest", {:ok, "bar", " rest"}
     assert_parse_result parser, "baz rest", {:ok, "baz", " rest"}
@@ -39,7 +39,7 @@ defmodule Compadre.CombinatorsTest do
   end
 
   test "look_ahead/1" do
-    parser = look_ahead(Ps.binary("foo"))
+    parser = look_ahead(Ps.Binary.binary("foo"))
     assert_parse_result parser, "foobar", {:ok, "foo", "foobar"}
   end
 
@@ -49,22 +49,22 @@ defmodule Compadre.CombinatorsTest do
   end
 
   test "followed_by/2: both parsers succeed" do
-    parser = followed_by(Ps.take_bytes(1), Ps.take_bytes(2))
+    parser = followed_by(Ps.Binary.take_bytes(1), Ps.Binary.take_bytes(2))
     assert_parse_result parser, "foorest", {:ok, "f", "rest"}
   end
 
   test "followed_by/2: one of the parsers fails" do
     # First one
-    parser = followed_by(Ps.binary("foo"), Ps.binary("bar"))
+    parser = followed_by(Ps.Binary.binary("foo"), Ps.Binary.binary("bar"))
     assert_parse_result parser, "fobar", {:error, _, "fobar"}
 
     # Second one
-    parser = followed_by(Ps.binary("foo"), Ps.flunk(:oops))
+    parser = followed_by(Ps.Binary.binary("foo"), Ps.flunk(:oops))
     assert_parse_result parser, "foobar", {:error, :oops, "foobar"}
   end
 
   test "label/2" do
-    parser = label(Ps.binary("foo"), "foo parser")
+    parser = label(Ps.Binary.binary("foo"), "foo parser")
 
     # Let's avoid assert_parse_result here as we need to match on the message.
     assert {:error, msg, "bar"} = parse(parser, "bar")
@@ -74,7 +74,7 @@ defmodule Compadre.CombinatorsTest do
   ## Combinators that are built upon the "core" combinators ##
 
   test "seq/2: the first parser succeeds" do
-    parser = seq(Ps.take_bytes(1), Ps.take_bytes(2))
+    parser = seq(Ps.Binary.take_bytes(1), Ps.Binary.take_bytes(2))
     assert_parse_result parser, "foorest", {:ok, "oo", "rest"}
   end
 
@@ -84,7 +84,7 @@ defmodule Compadre.CombinatorsTest do
     assert_parse_result parser, "baz", {:error, :oops, "baz"}
 
     # Second one
-    parser = seq(Ps.take_bytes(3), Ps.flunk(:oops))
+    parser = seq(Ps.Binary.take_bytes(3), Ps.flunk(:oops))
     assert_parse_result parser, "baz", {:error, :oops, ""}
   end
 
@@ -97,69 +97,64 @@ defmodule Compadre.CombinatorsTest do
   end
 
   test "defaulting_to/2" do
-    parser = defaulting_to(Ps.binary("foo"), :default)
+    parser = defaulting_to(Ps.Binary.binary("foo"), :default)
     assert_parse_result parser, "foo rest", {:ok, "foo", " rest"}
     assert_parse_result parser, "bar", {:ok, :default, "bar"}
   end
 
   test "one_of/1" do
-    parser = one_of(Enum.map(~w(foo bar baz), &Ps.binary/1))
+    parser = one_of(Enum.map(~w(foo bar baz), &Ps.Binary.binary/1))
     assert_parse_result parser, "foo rest", {:ok, "foo", " rest"}
     assert_parse_result parser, "bar rest", {:ok, "bar", " rest"}
     assert_parse_result parser, "baz rest", {:ok, "baz", " rest"}
   end
 
   test "many_until/2" do
-    parser = many_until(Ps.take_byte(), Ps.binary("-stop"))
+    parser = many_until(Ps.Binary.take_byte(), Ps.Binary.binary("-stop"))
     assert_parse_result parser, "abc-stop-rest", {:ok, 'abc', "-rest"}
 
-    parser = many_until(Ps.binary("foo"), Ps.binary("-stop"))
+    parser = many_until(Ps.Binary.binary("foo"), Ps.Binary.binary("-stop"))
     assert_parse_result parser, "bar-stop", {:ok, [], "bar-stop"}
   end
 
-  test "take_until/2" do
-    parser = take_until(Ps.binary("foo"))
-    assert_parse_result parser, "before-foo-rest", {:ok, "before-", "-rest"}
-  end
-
   test "many/1" do
-    parser = many(Ps.binary("foo"))
+    parser = many(Ps.Binary.binary("foo"))
 
     assert_parse_result parser, "foofoobar", {:ok, ["foo", "foo"], "bar"}
     assert_parse_result parser, "bar", {:ok, [], "bar"}
   end
 
   test "one_or_more/1" do
-    parser = one_or_more(Ps.binary("foo"))
+    parser = one_or_more(Ps.Binary.binary("foo"))
 
     assert_parse_result parser, "foofoobar", {:ok, ["foo", "foo"], "bar"}
     assert_parse_result parser, "bar", {:error, _, "bar"}
   end
 
   test "sequence/1: all the sequence successfully goes through" do
-    parser = sequence([Ps.binary("foo"), Ps.binary("bar")])
+    parser = sequence([Ps.Binary.binary("foo"), Ps.Binary.binary("bar")])
     assert_parse_result parser, "foobar rest", {:ok, ["foo", "bar"], " rest"}
   end
 
   test "sequence/1: the sequence is stopped on the first failing parser" do
-    parser = sequence([Ps.binary("foo"), Ps.binary("bar"), Ps.binary("baz")])
+    parser = sequence([Ps.Binary.binary("foo"), Ps.Binary.binary("bar"), Ps.Binary.binary("baz")])
     assert_parse_result parser, "foobaz", {:error, _, _}
   end
 
   test "count/1" do
-    parser = count(Ps.binary("foo"), 3)
+    parser = count(Ps.Binary.binary("foo"), 3)
     assert_parse_result parser, "foofoofoo rest", {:ok, ["foo", "foo", "foo"], " rest"}
   end
 
   test "sep_by_at_least_one/2" do
-    parser = sep_by_at_least_one(Ps.take_bytes(3), Ps.binary(", "))
+    parser = sep_by_at_least_one(Ps.Binary.take_bytes(3), Ps.Binary.binary(", "))
 
     assert_parse_result parser, "foo, bar, baz-rest", {:ok, ~w(foo bar baz), "-rest"}
     assert_parse_result parser, {"fo", :eoi}, {:error, _, "fo"}
   end
 
   test "sep_by/2" do
-    parser = sep_by(Ps.take_bytes(3), Ps.binary(", "))
+    parser = sep_by(Ps.Binary.take_bytes(3), Ps.Binary.binary(", "))
 
     assert_parse_result parser, "foo, bar, baz-rest", {:ok, ~w(foo bar baz), "-rest"}
     assert_parse_result parser, {"fo", :eoi}, {:ok, [], "fo"}

@@ -95,8 +95,6 @@ defmodule Compadre.Combinators do
     end
   end
 
-  ## Combinators that are built upon the "core" combinators ##
-
   @spec seq(Parser.t(failt1, any), Parser.t(failt2, succt)) ::
     Parser.t(failt1 | failt2, succt)
     when failt1: any, failt2: any, succt: any
@@ -108,7 +106,11 @@ defmodule Compadre.Combinators do
     Parser.t(failt, result)
     when failt: any, succt: any, result: any
   def transform(parser, fun) do
-    bind(parser, fn res -> Parsers.fixed(fun.(res)) end)
+    Parser.new fn(state, failf, succf) ->
+      Parser.apply parser, state, failf, fn(res, nstate) ->
+        succf.(fun.(res), nstate)
+      end
+    end
   end
 
   @spec defaulting_to(Parser.t(any, succt), val) :: Parser.t(any, succt | val)
@@ -146,13 +148,13 @@ defmodule Compadre.Combinators do
 
   @spec many(Parser.t(any, succt)) :: Parser.t(any, [succt]) when succt: any
   def many(parser) do
-    many_until(parser, Parsers.flunk(:never_reached))
+    Parser.new(&do_many(&1, &2, &3, parser, [])) |> transform(&Enum.reverse/1)
   end
 
-  @spec take_until(Parser.t(any, any)) :: Parser.t(any, binary)
-  def take_until(end_parser) do
-    take_byte = followed_by(Parsers.peek_byte(), Parsers.advance(1))
-    many_until(take_byte, end_parser) |> transform(&List.to_string/1)
+  defp do_many(state, failf, succf, parser, acc) do
+    nfailf = fn(_, nstate) -> succf.(acc, nstate) end
+    nsuccf = fn(res, nstate) -> do_many(nstate, failf, succf, parser, [res|acc]) end
+    Parser.apply(parser, state, nfailf, nsuccf)
   end
 
   @spec one_or_more(Parser.t(any, succt)) :: Parser.t(any, [succt, ...])
@@ -162,7 +164,7 @@ defmodule Compadre.Combinators do
     bind parser, fn res ->
       # ...and if it succeeds, we parse with `many(parser)` and then add the
       # result of the first parse.
-      bind(many(parser), fn rest -> Parsers.fixed([res|rest]) end)
+      many(parser) |> transform(fn rest -> [res|rest] end)
     end
   end
 

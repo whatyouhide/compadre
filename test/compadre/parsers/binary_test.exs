@@ -58,7 +58,7 @@ defmodule Compadre.Parsers.BinaryTest do
 
     assert_parse_result parser, "foobar", {:ok, "foo", "bar"}
 
-    # We'll leave these two tests as is because with randomly crafted inputs we
+    # We'll leave these tests as is because with randomly crafted inputs we
     # can't be sure about the error message (e.g., if the input is "bar" we can
     # say 'found "bar"', if it's "ba" we have to say 'found "ba"').
 
@@ -67,5 +67,14 @@ defmodule Compadre.Parsers.BinaryTest do
 
     msg = ~s(expected "foo", found "fba")
     assert {:error, ^msg, "fbar"} = parse_test(parser, "fbar")
+
+    assert {:error, ~s(expected "foo", found "fo"), "fo"} =
+      parser
+      |> parse_test("f")
+      |> Compadre.feed("o")
+      |> Compadre.eoi()
+
+    assert {:error, ~s(expected "foo", found ""), _} =
+      parser |> parse_test("", complete?: true)
   end
 end

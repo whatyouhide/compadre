@@ -1,4 +1,8 @@
 defmodule Compadre.Parser do
+  @moduledoc """
+  A struct that represents a parser.
+  """
+
   alias __MODULE__
   alias Compadre.State
 

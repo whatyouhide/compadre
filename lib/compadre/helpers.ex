@@ -44,6 +44,21 @@ defmodule Compadre.Helpers do
   end
 
   @doc """
+  Works like `prompt/3`, but if the state is already complete then calls `failf`
+  directly.
+  """
+  @spec prompt_or_fail_if_complete(State.t, (nil, State.t -> failt), (nil, State.t -> succt)) ::
+    failt | Partial.t(failt | succt)
+    when failt: any, succt: any
+  def prompt_or_fail_if_complete(%State{} = state, failf, succf) do
+    if state.complete? do
+      failf.(nil, state)
+    else
+      prompt(state, failf, succf)
+    end
+  end
+
+  @doc """
   Advances the position in state by the given amount `n`.
   """
   @spec advance_pos(State.t, pos_integer) :: State.t

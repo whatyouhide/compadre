@@ -1,6 +1,8 @@
 defmodule Compadre.CombinatorsTest do
   use ExUnit.Case, async: true
 
+  doctest Compadre.Combinators
+
   import Compadre.TestHelper
   import Compadre
   import Compadre.Combinators
@@ -34,8 +36,6 @@ defmodule Compadre.CombinatorsTest do
 
     assert_parse_result parser, "bar rest", {:ok, "bar", " rest"}
     assert_parse_result parser, "baz rest", {:ok, "baz", " rest"}
-
-    # TODO test that the error message mentions both parsers
   end
 
   test "look_ahead/1" do
@@ -151,6 +151,9 @@ defmodule Compadre.CombinatorsTest do
 
     assert_parse_result parser, "foo, bar, baz-rest", {:ok, ~w(foo bar baz), "-rest"}
     assert_parse_result parser, {"fo", :eoi}, {:error, _, "fo"}
+
+    parser = sep_by_at_least_one(Ps.Text.integer(), Ps.Binary.binary(", "))
+    assert_parse_result parser, {"1", :eoi}, {:ok, [1], ""}
   end
 
   test "sep_by/2" do

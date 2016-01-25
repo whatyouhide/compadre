@@ -1,4 +1,11 @@
 defmodule Compadre.Parsers do
+  @moduledoc """
+  Basic universal parsers.
+
+  The parsers in this module can often be used as building blocks for low-level
+  parsers.
+  """
+
   alias Compadre.Parser
   alias Compadre.State
   alias Compadre.Partial
@@ -36,18 +43,14 @@ defmodule Compadre.Parsers do
   # just returns `nil`. Fails if we reach eoi.
   # Made public for testing.
   @doc false
-  @spec demand_input() :: Parser.t(any, any)
+  @spec demand_input() :: Parser.t(binary, nil)
   def demand_input() do
     Parser.new fn(%State{input: input, pos: pos} = state, failf, succf) ->
-      error_msg = "unexpected end of input"
-      cond do
-        state.complete? ->
-          failf.(error_msg, state)
-        byte_size(input) == pos ->
-          nfailf = fn nil, nstate -> failf.(error_msg, nstate) end
-          Helpers.prompt(state, nfailf, succf)
-        true ->
-          succf.(nil, state)
+      if byte_size(input) == pos do
+        nfailf = fn(_, nstate) -> failf.("unexpected end of input", nstate) end
+        Helpers.prompt_or_fail_if_complete(state, nfailf, succf)
+      else
+        succf.(nil, state)
       end
     end
   end
@@ -75,7 +78,7 @@ defmodule Compadre.Parsers do
         nsuccf = fn nil, nstate ->
           do_advance(nstate, failf, succf, nbytes)
         end
-        Helpers.prompt(state, nfailf, nsuccf)
+        Helpers.prompt_or_fail_if_complete(state, nfailf, nsuccf)
     end
   end
 
@@ -98,15 +101,12 @@ defmodule Compadre.Parsers do
   @spec at_end?() :: Parser.t(any, boolean)
   def at_end?() do
     Parser.new fn state, _failf, succf ->
-      cond do
-        state.complete? ->
-          succf.(true, state)
-        byte_size(state.input) == state.pos ->
-          pfailf = fn nil, nstate -> succf.(true, nstate) end
-          psuccf = fn nil, nstate -> succf.(false, nstate) end
-          Helpers.prompt(state, pfailf, psuccf)
-        true ->
-          succf.(false, state)
+      if byte_size(state.input) == state.pos do
+        pfailf = fn nil, nstate -> succf.(true, nstate) end
+        psuccf = fn nil, nstate -> succf.(false, nstate) end
+        Helpers.prompt_or_fail_if_complete(state, pfailf, psuccf)
+      else
+        succf.(false, state)
       end
     end
   end

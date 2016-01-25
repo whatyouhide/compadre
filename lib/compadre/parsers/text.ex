@@ -70,7 +70,7 @@ defmodule Compadre.Parsers.Text do
         nsuccf = fn(_, nstate) ->
           do_integer(nstate, failf, succf)
         end
-        Helpers.prompt(state, nfailf, nsuccf)
+        Helpers.prompt_or_fail_if_complete(state, nfailf, nsuccf)
       {i, rest} ->
         succf.(i, %{state | pos: input_size - byte_size(rest)})
       :error when target == "+" or target == "-" ->

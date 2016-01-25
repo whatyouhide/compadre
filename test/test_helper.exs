@@ -18,13 +18,14 @@ defmodule Compadre.TestHelper do
   defmacro assert_parse_result(parser, input, result) do
     quote do
       parser = unquote(parser)
-      input  = unquote(input)
       res_code = unquote(Macro.to_string(result))
+
       {input, eoi?} =
-        case input do
+        case unquote(input) do
           {i, :eoi} -> {i, true}
           i         -> {i, false}
         end
+
       for {inp, seq} <- Compadre.TestHelper.possible_parse_seqs(parser, input, eoi?) do
         case seq do
           unquote(result) ->
@@ -51,7 +52,11 @@ defmodule Compadre.TestHelper do
       |> Enum.flat_map(&parse_split_input(parser, &1))
 
     if eoi? do
-      Enum.map(res, fn {inp, res} -> {inp, Compadre.eoi(res)} end)
+      after_eoiing = Enum.map(res, fn {inp, res} -> {inp, Compadre.eoi(res)} end)
+      # We add a call where the input is complete before even starting to parse.
+      already_complete = {{:already_complete, input},
+                          parse_test(parser, input, complete?: true)}
+      after_eoiing ++ [already_complete]
     else
       res
     end

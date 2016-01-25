@@ -233,9 +233,14 @@ defmodule Compadre.Parsers.Binary do
       lc_prefix == target_size ->
         succf.(target, %{state | pos: pos + target_size})
       segment_size < target_size and lc_prefix == segment_size ->
-        Helpers.prompt state, failf, fn(_, nstate) ->
+        nfailf = fn(_, nstate) ->
+          remaining = Helpers.from_position_to_end(nstate)
+          failf.("expected #{inspect target}, found #{inspect remaining}", nstate)
+        end
+        nsuccf = fn(_, nstate) ->
           do_binary(nstate, failf, succf, target, target_size)
         end
+        Helpers.prompt_or_fail_if_complete(state, nfailf, nsuccf)
       true ->
         failf.("expected #{inspect target}, found #{inspect segment}", state)
     end

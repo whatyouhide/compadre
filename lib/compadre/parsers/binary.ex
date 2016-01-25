@@ -89,13 +89,19 @@ defmodule Compadre.Parsers.Binary do
   """
   @spec byte(byte) :: Parser.t(any, byte)
   def byte(target) when is_integer(target) and target in 0..255 do
-    # For now, let's not implement this on top of satisfy/1 as we want this nice
-    # error message.
-    Combs.bind peek_byte!(), fn b ->
-      if b == target do
-        Combs.seq(Parsers.advance(1), Parsers.fixed(b))
-      else
-        Parsers.flunk("expected byte #{target}, found #{b}")
+    # Implemented "natively" for performance.
+    Parser.new(&do_byte(&1, &2, &3, target))
+  end
+
+  defp do_byte(%State{pos: pos, input: input} = state, failf, succf, target) do
+    if byte_size(input) > pos do
+      case :binary.at(input, pos) do
+        ^target -> succf.(target, %{state | pos: pos + 1})
+        b       -> failf.("expected byte #{target}, found #{b}", state)
+      end
+    else
+      Parser.apply Parsers.demand_input(), state, failf, fn(_, nstate) ->
+        do_byte(nstate, failf, succf, target)
       end
     end
   end

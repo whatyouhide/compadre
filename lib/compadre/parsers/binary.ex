@@ -245,4 +245,40 @@ defmodule Compadre.Parsers.Binary do
         failf.("expected #{inspect target}, found #{inspect segment}", state)
     end
   end
+
+  @doc """
+  Takes all the bytes until `target`.
+
+  Consumes all the bytes before `target` and returns them. Doesn't consume
+  `target`.
+
+  ## Examples
+
+      iex> import Compadre.Parsers.Binary
+      iex> Compadre.parse(until_binary("stop"), "foostop")
+      {:ok, "foo", "stop"}
+
+  """
+  @spec until_binary(binary) :: Parser.t(any, binary)
+  def until_binary(target) when is_binary(target) do
+    Parser.new(&do_until_binary(&1, &2, &3, target, byte_size(target), ""))
+  end
+
+  defp do_until_binary(%State{pos: pos, input: input} = state, failf, succf, target, target_size, acc) do
+    case input do
+      <<_ :: size(pos)-bytes, ^target :: size(target_size)-bytes, _ :: binary>> ->
+        succf.(acc, state)
+      <<_ :: size(pos)-bytes, rest :: binary>> ->
+        if :binary.longest_common_prefix([target, rest]) == byte_size(rest) do
+          nfailf = fn(_, nstate) -> failf.("unexpected end of input", nstate) end
+          nsuccf = fn(_, nstate) -> do_until_binary(nstate, failf, succf, target, target_size, acc) end
+          Helpers.prompt_or_fail_if_complete(state, nfailf, nsuccf)
+        else
+          Parser.apply Parsers.demand_input(), state, failf, fn(_, nstate) ->
+            nacc = <<acc :: binary, :binary.at(nstate.input, pos)>>
+            do_until_binary(Helpers.advance_pos(nstate, 1), failf, succf, target, target_size, nacc)
+          end
+        end
+    end
+  end
 end

@@ -77,4 +77,11 @@ defmodule Compadre.Parsers.BinaryTest do
     assert {:error, ~s(expected "foo", found ""), _} =
       parser |> parse_test("", complete?: true)
   end
+
+  test "until_binary/1" do
+    parser = until_binary("stop")
+
+    assert_parse_result parser, "foo-stop", {:ok, "foo-", "stop"}
+    assert_parse_result parser, {"foo-st", :eoi}, {:error, "unexpected end of input", "st"}
+  end
 end

@@ -61,6 +61,12 @@ defmodule Compadre.Parsers do
   # Made public for testing.
   @doc false
   @spec advance(non_neg_integer) :: Parser.t(any, nil)
+  def advance(nbytes)
+
+  def advance(0) do
+    fixed(nil)
+  end
+
   def advance(nbytes) when is_integer(nbytes) and nbytes >= 0 do
     Parser.new(&do_advance(&1, &2, &3, nbytes))
   end

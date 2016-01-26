@@ -412,7 +412,7 @@ defmodule Compadre.Combinators do
   """
   @spec count(Parser.t(any, succt), pos_integer) :: Parser.t(any, [succt, ...])
     when succt: any
-  def count(parser, n) when is_integer(n) and n > 0 do
+  def count(parser, n) when is_integer(n) and n >= 0 do
     parser |> List.duplicate(n) |> sequence()
   end
 

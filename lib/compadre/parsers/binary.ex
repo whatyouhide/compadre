@@ -133,7 +133,7 @@ defmodule Compadre.Parsers.Binary do
   Takes the next `nbytes` bytes from the input.
 
   This parser fails if we reach end of input and there are less than `nbytes`
-  bytes available. `nbytes` must be strictly greater than zero.
+  bytes available. `nbytes` must be greater than or equal to 0.
 
   ## Examples
 
@@ -144,8 +144,8 @@ defmodule Compadre.Parsers.Binary do
       {:error, "expected to have 3 bytes available, only got 2", "fo"}
 
   """
-  @spec take_bytes(pos_integer) :: Parser.t(any, binary)
-  def take_bytes(nbytes) when is_integer(nbytes) and nbytes > 0 do
+  @spec take_bytes(non_neg_integer) :: Parser.t(any, binary)
+  def take_bytes(nbytes) when is_integer(nbytes) and nbytes >= 0 do
     Parsers.advance(nbytes)
     |> Combs.with_consumed_input()
     |> Combs.transform(fn {_, consumed} -> consumed end)
@@ -168,7 +168,7 @@ defmodule Compadre.Parsers.Binary do
 
   """
   @spec peek_bytes(pos_integer) :: Parser.t(any, {:ok, binary} | nil)
-  def peek_bytes(nbytes) when is_integer(nbytes) and nbytes > 0 do
+  def peek_bytes(nbytes) when is_integer(nbytes) and nbytes >= 0 do
     take_bytes(nbytes)
     |> Combs.look_ahead()
     |> Combs.transform(fn bs -> {:ok, bs} end)
@@ -189,7 +189,7 @@ defmodule Compadre.Parsers.Binary do
 
   """
   @spec peek_bytes!(pos_integer) :: Parser.t(any, binary)
-  def peek_bytes!(nbytes) when is_integer(nbytes) and nbytes > 0 do
+  def peek_bytes!(nbytes) when is_integer(nbytes) and nbytes >= 0 do
     Combs.look_ahead(take_bytes(nbytes))
   end
 

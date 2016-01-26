@@ -81,4 +81,56 @@ defmodule Compadre.Parsers.Text do
         failf.("expected integer", state)
     end
   end
+
+  @doc """
+  Parses a float from the input.
+
+  The float is parsed using `Float.parse/1`, so rules that apply to that
+  function also apply to this function. For example, floats with a sign will be
+  parsed as well as floats without sign.
+
+  As the documentation for `Float.parse/1` mentions, if the size of the floats
+  exceeds the maximum size of `1.7976931348623157e+308` then this parser will
+  fail.
+
+  ## Examples
+
+      iex> import Compadre.Parsers.Text
+      iex> Compadre.parse(float(), "1.0e-10...")
+      {:ok, 1.0e-10, "..."}
+
+  """
+  def float() do
+    Combs.seq(Parsers.demand_input(), Parser.new(&do_float/3))
+  end
+
+  defp do_float(state, failf, succf) do
+    input_size = byte_size(state.input)
+    target     = Helpers.from_position_to_end(state, input_size)
+
+    case safe_parse_float(target) do
+      {:error, :too_large} ->
+        failf.("tried to parse float, but it was too large", state)
+      {f, bin} when bin in ["", ".", "e", "e+", "e-", ".e", ".e+", ".e-"] ->
+        nfailf = fn(_, nstate) -> succf.(f, %{nstate | pos: input_size}) end
+        nsuccf = fn(_, nstate) -> do_float(nstate, failf, succf) end
+        Helpers.prompt_or_fail_if_complete(state, nfailf, nsuccf)
+      {f, rest} ->
+        succf.(f, %{state | pos: input_size - byte_size(rest)})
+      :error when target == "+" or target == "-" ->
+        Parser.apply Parsers.demand_input(), Helpers.advance_pos(state, 1), failf, fn(_, nstate) ->
+          do_float(%{nstate | pos: nstate.pos - 1}, failf, succf)
+        end
+      :error ->
+        failf.("expected float", state)
+    end
+  end
+
+  defp safe_parse_float(target) do
+    try do
+      Float.parse(target)
+    rescue
+      ArgumentError -> {:error, :too_large}
+    end
+  end
 end

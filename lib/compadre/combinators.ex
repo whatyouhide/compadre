@@ -294,7 +294,7 @@ defmodule Compadre.Combinators do
     # This "native" implementation should be quite faster than its combined
     # alternative.
     nfailf = fn(_, nstate) -> succf.(acc, nstate) end
-    nsuccf = fn(res, nstate) -> do_many(nstate, failf, succf, parser, [res|acc]) end
+    nsuccf = fn(res, nstate) -> do_many(nstate, failf, succf, parser, [res | acc]) end
     Parser.apply(parser, state, nfailf, nsuccf)
   end
 
@@ -308,7 +308,7 @@ defmodule Compadre.Combinators do
     bind parser, fn res ->
       # ...and if it succeeds, we parse with `many(parser)` and then add the
       # result of the first parse.
-      many(parser) |> transform(fn rest -> [res|rest] end)
+      many(parser) |> transform(fn rest -> [res | rest] end)
     end
   end
 
@@ -344,7 +344,7 @@ defmodule Compadre.Combinators do
   defp do_many_until(parser, end_parser, acc) do
     # `p` is a parser that calls do_many_until recursively and prepends its
     # result to the result of the recursive parse.
-    p = bind(parser, &do_many_until(parser, end_parser, [&1|acc]))
+    p = bind(parser, &do_many_until(parser, end_parser, [&1 | acc]))
     pacc = Parsers.fixed(acc)
 
     # One of these happens
@@ -421,7 +421,7 @@ defmodule Compadre.Combinators do
     when succt: any
   def sequence(parsers) do
     parsers
-    |> reduce(Parsers.fixed([]), &[&1|&2])
+    |> reduce(Parsers.fixed([]), &[&1 | &2])
     |> transform(&Enum.reverse/1)
   end
 

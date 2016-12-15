@@ -12,7 +12,7 @@ defmodule Compadre.Sugar do
     expand_last_action(action)
   end
 
-  defp expand_actions([{:<-, _meta, [var, parser]}|rest]) do
+  defp expand_actions([{:<-, _meta, [var, parser]} | rest]) do
     quote do
       case unquote(parser) do
         %Compadre.Parser{} = parser ->
@@ -26,14 +26,14 @@ defmodule Compadre.Sugar do
     end
   end
 
-  defp expand_actions([{:=, _, _} = code|rest]) do
+  defp expand_actions([{:=, _, _} = code | rest]) do
     quote do
       unquote(code)
       unquote(expand_actions(rest))
     end
   end
 
-  defp expand_actions([action|rest]) do
+  defp expand_actions([action | rest]) do
     quote do
       case unquote(action) do
         %Compadre.Parser{} = parser ->

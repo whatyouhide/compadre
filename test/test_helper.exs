@@ -68,9 +68,9 @@ defmodule Compadre.TestHelper do
   # when the first chunk is the start of the input.
   defp parse_split_input(parser, input) do
     input = if input == [], do: [""], else: input
-    [first_chunk|rest] = input
+    [first_chunk | rest] = input
     nopos = parse_test(parser, first_chunk)
-    pos   = parse_test(parser, "start " <> first_chunk, pos: 6)
+    pos = parse_test(parser, "start " <> first_chunk, pos: 6)
     [{input, feed_pieces(nopos, rest)}, {input, feed_pieces(pos, rest)}]
   end
 

@@ -49,7 +49,7 @@ defmodule Compadre.Parsers.Binary do
   @spec peek_byte!() :: Parser.t(any, byte)
   def peek_byte!() do
     Parsers.demand_input()
-    |> Combs.seq(peek_byte)
+    |> Combs.seq(peek_byte())
     |> Combs.transform(fn {:ok, b} -> b end)
   end
 

@@ -130,6 +130,28 @@ defmodule Compadre.Parsers.Binary do
   end
 
   @doc """
+  Takes bytes while they satisfy the given `predicate`.
+
+  This parser takes bytes from the input while the `predicate` function returns
+  `true` when such bytes are passed to it. This parser never fails: in case no
+  bytes satisfy the given predicate, it return an empty string.
+
+  ## Examples
+
+      iex> import Compadre.Parsers.Binary
+      iex> Compadre.parse(take_while(fn byte -> not(byte in [?., ?!, ??]) end), "hey!")
+      {:ok, "hey", "!"}
+      iex> Compadre.parse(take_while(fn _byte -> false end), "something")
+      {:ok, "", "something"}
+
+  """
+  def take_while(pred) when is_function(pred, 1) do
+    satisfy(pred)
+    |> Combs.many()
+    |> Combs.transform(&IO.iodata_to_binary/1)
+  end
+
+  @doc """
   Takes the next `nbytes` bytes from the input.
 
   This parser fails if we reach end of input and there are less than `nbytes`

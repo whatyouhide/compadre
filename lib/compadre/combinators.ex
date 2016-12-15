@@ -90,7 +90,7 @@ defmodule Compadre.Combinators do
   @doc """
   Tries to run `parser` without consuming any input.
 
-  Returns the result of `parser` (weather it's a success or an error), but
+  Returns the result of `parser` (wether it's a success or an error), but
   doesn't consume any input.
 
   ## Examples

@@ -14,15 +14,14 @@ defmodule Compadre.Sugar do
 
   defp expand_actions([{:<-, _meta, [var, parser]}|rest]) do
     quote do
-      parser = unquote(parser)
-
-      unless match?(%Compadre.Parser{}, parser) do
-        raise ArgumentError, "expressions on the right of a <- in a combine" <>
-                             " block must be parsers, got: #{inspect parser}"
-      end
-
-      Compadre.Combinators.bind unquote(parser), fn(unquote(var)) ->
-        unquote(expand_actions(rest))
+      case unquote(parser) do
+        %Compadre.Parser{} = parser ->
+          Compadre.Combinators.bind(parser, fn(unquote(var)) ->
+            unquote(expand_actions(rest))
+          end)
+        other ->
+          raise ArgumentError, "expressions on the right of a <- in a combine " <>
+                               "block must be parsers, got: #{inspect(other)}"
       end
     end
   end
@@ -36,14 +35,13 @@ defmodule Compadre.Sugar do
 
   defp expand_actions([action|rest]) do
     quote do
-      action = unquote(action)
-
-      unless match?(%Compadre.Parser{}, action) do
-        raise ArgumentError, "statements in a combine block must be parsers," <>
-                             " got: #{inspect action}"
+      case unquote(action) do
+        %Compadre.Parser{} = parser ->
+          Compadre.Combinators.seq(parser, unquote(expand_actions(rest)))
+        other ->
+          raise ArgumentError, "statements in a combine block must be parsers, " <>
+                               "got: #{inspect(other)}"
       end
-
-      Compadre.Combinators.seq(action, unquote(expand_actions(rest)))
     end
   end
 

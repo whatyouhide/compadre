@@ -83,7 +83,9 @@ defmodule Compadre.TestHelper do
   # Returns the given input, split in many different ways (using
   # random_subsequences/1).
   defp split_combinations(input) do
-    1..200 |> Enum.map(fn _ -> random_subsequences(input) end) |> Enum.uniq()
+    1..200
+    |> Enum.map(fn _ -> random_subsequences(input) end)
+    |> Enum.uniq()
   end
 
   # Returns subsequences of `str`, each with a random length (e.g. "foo" ->
@@ -92,11 +94,11 @@ defmodule Compadre.TestHelper do
     []
   end
 
-  defp random_subsequences(str) do
-    str_size      = byte_size(str)
-    bytes_to_take = Enum.random(1..str_size)
-    fst           = :binary.part(str, 0, bytes_to_take)
-    snd           = :binary.part(str, bytes_to_take, str_size - bytes_to_take)
-    [fst|random_subsequences(snd)]
+  defp random_subsequences(string) do
+    string_size = byte_size(string)
+    bytes_to_take = Enum.random(1..string_size)
+    first = :binary.part(string, 0, bytes_to_take)
+    rest = :binary.part(string, bytes_to_take, string_size - bytes_to_take)
+    [first | random_subsequences(rest)]
   end
 end
